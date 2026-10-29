@@ -1,4 +1,4 @@
-# puzzlegame
+# puzzle-game
 
 > Java Swing 拼图小游戏：4×4 滑块拼图，带注册登录、验证码、步数统计和查看原图
 
@@ -118,7 +118,7 @@ macOS / Linux 用 `:`，Windows 用 `;` 分隔 classpath。
 ## 目录结构
 
 ```
-puzzlegame/
+puzzle-game/
 ├── README.md
 ├── puzzlegame.iml               # IDEA 模块：src 为源码根，lib/*.jar 为依赖（jar 实际已不用）
 ├── .gitignore                   # 忽略 out/、bin/、.DS_Store、data/（没忽略 .idea/）
