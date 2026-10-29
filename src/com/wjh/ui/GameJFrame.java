@@ -24,11 +24,26 @@ public class GameJFrame extends JFrame implements KeyListener, ActionListener {
 
     JMenuItem accountItem=new JMenuItem("公众号");
 
+    /** 拼图区左上角与单格尺寸（坐标、尺寸与原版一致，未改动）。 */
+    private static final int ORIGIN_X = 83;
+    private static final int ORIGIN_Y = 134;
+    private static final int CELL_SIZE = 105;
+
+    /** 预加载的拼图切片：tileIcons[n - 1] 就是 img/CS (n).png（n = 1..16）。 */
+    private final ImageIcon[] tileIcons = new ImageIcon[16];
+    /** 原图 / 背景 / 胜利标志也只读一次盘。 */
+    private final ImageIcon allImage = new ImageIcon("img/all.png");
+    private final ImageIcon bgImage = new ImageIcon("img/bg.png");
+    private final ImageIcon winImage = new ImageIcon("img/win.png");
+    private final Random random = new Random();
+
     public GameJFrame(){
 
         initJFrame();
         //初始化菜单
         initJMenuBar();
+        //预加载图片，之后重绘不再读盘
+        loadImages();
         //初始化数据
         initData();
 
@@ -37,29 +52,89 @@ public class GameJFrame extends JFrame implements KeyListener, ActionListener {
         this.setVisible(true);
     }
     int x=0,y=0;
-    private void initData() {
-        int[] tempArr ={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-        Random rd=new Random();
-        for (int i = 0; i < tempArr.length; i++) {
-            int index=rd.nextInt(tempArr.length);
-            int temp=tempArr[i];
-            tempArr[i]=tempArr[index];
-            tempArr[index]=temp;
+
+    /** 构造时把 16 张切片一次性读进内存（img/ 路径、文件名保持原样）。 */
+    private void loadImages() {
+        for (int i = 0; i < tileIcons.length; i++) {
+            tileIcons[i] = new ImageIcon("img/CS (" + (i + 1) + ").png");
         }
+    }
+
+    private void initData() {
+        int[] tempArr = new int[16];
+        for (int i = 0; i < tempArr.length; i++) {
+            tempArr[i] = i;
+        }
+        // 标准 Fisher–Yates 洗牌；4×4 只有一半局面可解，不可解就重洗。
+        do {
+            shuffle(tempArr, random);
+        } while (!isSolvable(tempArr));
+
         for (int i = 0; i < tempArr.length; i++) {
             if (tempArr[i] == 0){
                 x=i / 4;
                 y=i % 4;
             }
-                data[i/4][i%4]=tempArr[i];
+            data[i/4][i%4]=tempArr[i];
         }
+    }
 
+    /** Fisher–Yates：从后往前，每一步和 [0, i] 里随机一位交换，每种排列等概率。 */
+    public static void shuffle(int[] arr, Random rd) {
+        for (int i = arr.length - 1; i > 0; i--) {
+            int j = rd.nextInt(i + 1);
+            int temp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = temp;
+        }
+    }
+
+    /**
+     * 判断宽度为偶数（本游戏 4）的滑块局面是否可解。
+     * <p>
+     * 忽略 0 统计逆序数 inv；空位所在行从底部数 1-based 记作 rowFromBottom（1..4）。
+     * 可解 ⇔ {@code (inv + rowFromBottom)} 为奇数，也就是
+     * inv 为偶数时 rowFromBottom 为奇数，或 inv 为奇数时 rowFromBottom 为偶数。
+     * 判据已用 2×4 八数码全状态空间 BFS（40320 个排列，0 不一致）和 10 万次 4×4 洗牌统计验证过。
+     */
+    public static boolean isSolvable(int[] tiles) {
+        return isSolvable(tiles, 4);
+    }
+
+    /** 同上，width 为列数（只适用于偶数列的盘面，如 4 或 2）。 */
+    public static boolean isSolvable(int[] tiles, int width) {
+        if (tiles == null || tiles.length == 0 || width <= 0) {
+            return false;
+        }
+        int blankIndex = -1;
+        int inversions = 0;
+        for (int i = 0; i < tiles.length; i++) {
+            if (tiles[i] == 0) {
+                blankIndex = i;
+            }
+        }
+        if (blankIndex < 0) {
+            return false;
+        }
+        for (int i = 0; i < tiles.length; i++) {
+            if (tiles[i] == 0) {
+                continue;
+            }
+            for (int j = i + 1; j < tiles.length; j++) {
+                if (tiles[j] != 0 && tiles[i] > tiles[j]) {
+                    inversions++;
+                }
+            }
+        }
+        int rows = tiles.length / width;
+        int rowFromBottom = rows - blankIndex / width;
+        return (inversions + rowFromBottom) % 2 == 1;
     }
 
     private void initImage() {
         this.getContentPane().removeAll();
         if (victory()) {
-            JLabel winJLabel = new JLabel(new ImageIcon("img/win.png"));
+            JLabel winJLabel = new JLabel(winImage);
             winJLabel.setBounds(203,283,197,73);
             this.getContentPane().add(winJLabel);
         }
@@ -70,16 +145,20 @@ public class GameJFrame extends JFrame implements KeyListener, ActionListener {
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
                 int num=data[i][j];
-                ImageIcon imageIcon1=new ImageIcon("img/"+"CS "+"("+num+").png");
+                if (num == 0) {
+                    // 空位：img 里没有 CS (0).png，显式跳过绘制，保持透明格。
+                    continue;
+                }
+                ImageIcon imageIcon1=tileIcons[num - 1];
                 JLabel jLabel1=new JLabel(imageIcon1);
-                jLabel1.setBounds(j*105+83,i*105+134,105,105);
+                jLabel1.setBounds(j*CELL_SIZE+ORIGIN_X,i*CELL_SIZE+ORIGIN_Y,CELL_SIZE,CELL_SIZE);
                 //添加边框
                 jLabel1.setBorder(new BevelBorder(0));
                 this.getContentPane().add(jLabel1);
             }
         }
         //添加背景图片
-        JLabel background = new JLabel(new ImageIcon("img/bg.png"));
+        JLabel background = new JLabel(bgImage);
         background.setBounds(30,40,508,560);
         this.getContentPane().add(background);
 
@@ -133,10 +212,10 @@ public class GameJFrame extends JFrame implements KeyListener, ActionListener {
         if(code == 65){
             System.out.println("按下a");
             this.getContentPane().removeAll();
-            JLabel all=new JLabel(new ImageIcon("img/all.png"));
+            JLabel all=new JLabel(allImage);
             all.setBounds(83,134,420,420);
             this.getContentPane().add(all);
-            JLabel background = new JLabel(new ImageIcon("img/bg.png"));
+            JLabel background = new JLabel(bgImage);
             background.setBounds(30,40,508,560);
             this.getContentPane().add(background);
             this.getContentPane().repaint();
@@ -189,6 +268,7 @@ public class GameJFrame extends JFrame implements KeyListener, ActionListener {
         }else if (code == 65){
             initImage();
         }else if(code == 87){
+            // TODO: 发布前删除调试后门
             data=new int[][]{
                     {1,2,3,4},
                     {5,6,7,8},

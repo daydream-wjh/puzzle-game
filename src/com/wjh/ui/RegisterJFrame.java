@@ -1,12 +1,10 @@
 package com.wjh.ui;
 
-import cn.hutool.core.io.FileUtil;
-
 import javax.swing.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public class RegisterJFrame extends JFrame implements MouseListener {
@@ -79,20 +77,18 @@ public class RegisterJFrame extends JFrame implements MouseListener {
     public void mouseClicked(MouseEvent e) {
         Object source = e.getSource();
         if (source==submit){
-            if (username.getText().isEmpty() || password.getText().isEmpty() || password.getText().isEmpty()){
-                showJDalog("用户名或密码不能为空");
-            }else if (password.getText().equals(reset.getText())){
-                showJDalog("两次密码不一致");
-            }else if (containsname(username.getName())){
-                showJDalog("用户名已存在");
-            }else {
-                User user = new User(username.getText(), password.getText());
-                allusers.add(user);
-                FileUtil.writeLines(allusers,"D:\\desktop\\java\\puzzlegame\\src\\com\\wjh\\ui\\userinfo.txt", StandardCharsets.UTF_8);
-                showJDalog("注册成功");
-                this.setVisible(false);
-                new LoginJFrame();
+            if (!checkInput()) {
+                return;
             }
+            User user = new User(username.getText().trim(), password.getText());
+            allusers.add(user);
+            if (!saveUsers()) {
+                allusers.remove(user);
+                return;
+            }
+            showJDalog("注册成功");
+            this.setVisible(false);
+            new LoginJFrame();
 
         }else if (source==reset){
             username.setText("");
@@ -100,6 +96,43 @@ public class RegisterJFrame extends JFrame implements MouseListener {
             repassword.setText("");
         }
 
+    }
+
+    /** 三项校验：空值（含确认密码）、两次密码一致、用户名查重。 */
+    private boolean checkInput() {
+        String name = username.getText().trim();
+        String psd = password.getText();
+        String repsd = repassword.getText();
+        if (name.isEmpty() || psd.isEmpty() || repsd.isEmpty()) {
+            showJDalog("用户名或密码不能为空");
+            return false;
+        }
+        if (!psd.equals(repsd)) {
+            showJDalog("两次密码不一致");
+            return false;
+        }
+        if (containsname(name)) {
+            showJDalog("用户名已存在");
+            return false;
+        }
+        return true;
+    }
+
+    /** 把当前内存里的用户表整体写回 UserStore 的数据文件。 */
+    private boolean saveUsers() {
+        List<String> lines = new ArrayList<>(allusers.size());
+        for (User user : allusers) {
+            lines.add(user.toString());
+        }
+        try {
+            UserStore.save(lines);
+            return true;
+        } catch (RuntimeException e) {
+            System.err.println("[RegisterJFrame] 保存用户数据失败：" + UserStore.USER_FILE);
+            e.printStackTrace();
+            showJDalog("保存失败：" + e.getMessage());
+            return false;
+        }
     }
 private boolean containsname(String name){
     for (User user : allusers) {

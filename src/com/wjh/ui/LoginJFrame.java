@@ -1,15 +1,9 @@
 package com.wjh.ui;
 
-import cn.hutool.core.io.FileUtil;
-
 import javax.swing.*;
-import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
@@ -34,14 +28,29 @@ public class LoginJFrame extends JFrame implements MouseListener{
     }
 
     private void getUser(){
-    List<String> list = FileUtil.readUtf8Lines("D:\\desktop\\java\\puzzlegame\\src\\com\\wjh\\ui\\userinfo.txt");
-    for (String s : list) {
-        String[] split = s.split("&");
-        String username = split[0].split("=")[1];
-        String password = split[1].split("=")[1];
-        allusers.add(new User(username,password));
+        allusers.clear();
+        for (String line : UserStore.load()) {
+            String[] split = line.split("&");
+            if (split.length < 2) {
+                continue;
+            }
+            String username = valueOf(split[0]);
+            String password = valueOf(split[1]);
+            if (username == null || password == null) {
+                continue;
+            }
+            allusers.add(new User(username,password));
+        }
     }
-}
+
+    /** 取 "key=value" 里等号后面的部分，值里带等号也能原样保留。 */
+    private static String valueOf(String pair) {
+        int eq = pair.indexOf('=');
+        if (eq < 0) {
+            return null;
+        }
+        return pair.substring(eq + 1).trim();
+    }
     private void initView() {
         JLabel username = new JLabel("用户名");
         JLabel password = new JLabel("密码");

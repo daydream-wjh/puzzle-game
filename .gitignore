@@ -27,3 +27,5 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+### 运行期数据（UserStore 生成的用户表）###
+data/
